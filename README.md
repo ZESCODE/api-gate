@@ -120,6 +120,41 @@ npm run ci      # Runs lint + build + test
 
 ---
 
+## ZESCODE Deployment Topology
+
+| Host | Purpose | Runs on |
+| --- | --- | --- |
+| `gate.zes.codes` | Customer + admin console (SPA) | Vercel (static build, `dist/`) |
+| `gate-api.zes.codes` | Fastify API + SQLite | GCP `e2-micro` (us-west1), Node 24, systemd |
+
+`vercel.json` in this repo serves the SPA and proxies the gateway paths to the
+API origin, so the browser stays same-origin:
+
+- `/api/*`, `/v1/*`, `/i/*` → `https://gate-api.zes.codes/...`
+- everything else → `/` (SPA fallback for client-side routes such as `/login`,
+  `/overview`, `/admin/*`)
+
+Deploy the console:
+
+```bash
+vercel deploy --prod --yes          # builds with vite, publishes dist/
+```
+
+Required build-time environment variables on the Vercel project:
+`SITE_NAME=APInexGate`, `SITE_URL=https://gate.zes.codes`.
+
+The API origin runs from this repository on the VM:
+
+```bash
+git pull && npm ci && npm run build && systemctl restart apinex-gate
+```
+
+It listens on `127.0.0.1:8787`, keeps SQLite at `DB_PATH`, and is published
+through a Cloudflare tunnel (`apinex-gate-vm`). `ADMIN_PASSWORD` and the
+upstream provider keys live only in the VM environment file, never in git.
+
+---
+
 ## License
 
 Released under the [MIT License](./LICENSE). Built by [APInex (apinex.bond)](https://apinex.bond).
